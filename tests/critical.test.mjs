@@ -100,3 +100,51 @@ test("Esquema SQL, privacidad de purchase_status y plan de consulta (EXPLAIN)", 
   const textoPlan = plan.rows.map((r) => Object.values(r).join(" ")).join("\n");
   assert.match(textoPlan, /items_owner_position_idx/);
 });
+
+test("Ordenamiento del libro por precio (menor a mayor, mayor a menor) y prioridad mantiene sin precio al final", () => {
+  const PESO = { alta: 0, media: 1, baja: 2 };
+  function ordenar(lista, orden) {
+    if (orden === "manual" || lista.length <= 1) return lista;
+    return lista.slice().sort((a, b) => {
+      if (orden === "precio_asc") {
+        if (a.price === null && b.price === null) return a.position - b.position;
+        if (a.price === null) return 1;
+        if (b.price === null) return -1;
+        return a.price - b.price || a.position - b.position;
+      }
+      if (orden === "precio_desc") {
+        if (a.price === null && b.price === null) return a.position - b.position;
+        if (a.price === null) return 1;
+        if (b.price === null) return -1;
+        return b.price - a.price || a.position - b.position;
+      }
+      const pa = a.priority ? (PESO[a.priority] ?? 3) : 3;
+      const pb = b.priority ? (PESO[b.priority] ?? 3) : 3;
+      if (pa !== pb) return pa - pb;
+      const precioA = a.price ?? Number.POSITIVE_INFINITY;
+      const precioB = b.price ?? Number.POSITIVE_INFINITY;
+      if (precioA !== precioB) return precioA - precioB;
+      return a.position - b.position;
+    });
+  }
+
+  const muestra = [
+    { id: "1", name: "Chaqueta", price: 180000, priority: "media", position: 0 },
+    { id: "2", name: "Libro sorpresa", price: null, priority: "alta", position: 1 },
+    { id: "3", name: "Medias", price: 25000, priority: "baja", position: 2 },
+    { id: "4", name: "Camiseta", price: 70000, priority: "alta", position: 3 },
+  ];
+
+  assert.deepEqual(
+    ordenar(muestra, "precio_asc").map((i) => i.name),
+    ["Medias", "Camiseta", "Chaqueta", "Libro sorpresa"],
+  );
+  assert.deepEqual(
+    ordenar(muestra, "precio_desc").map((i) => i.name),
+    ["Chaqueta", "Camiseta", "Medias", "Libro sorpresa"],
+  );
+  assert.deepEqual(
+    ordenar(muestra, "prioridad").map((i) => i.name),
+    ["Camiseta", "Libro sorpresa", "Chaqueta", "Medias"],
+  );
+});

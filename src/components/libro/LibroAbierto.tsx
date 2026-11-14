@@ -3,13 +3,57 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dosDigitos } from "@/lib/format";
 import type { Item, ItemAjeno, ItemPayload } from "@/lib/types";
 import { Flecha } from "../Icono";
 import { PliegoFormulario } from "./PliegoFormulario";
-import { PliegoPortada } from "./PliegoPortada";
+import { type OrdenLibro, PliegoPortada } from "./PliegoPortada";
 import { PliegoProducto } from "./PliegoProducto";
+
+const PESO_PRIORIDAD: Record<string, number> = {
+  alta: 0,
+  media: 1,
+  baja: 2,
+};
+
+const OPCIONES_ORDEN: { id: OrdenLibro; etiqueta: string; corta: string }[] = [
+  { id: "manual", etiqueta: "Orden original", corta: "Original" },
+  { id: "precio_asc", etiqueta: "Menor a mayor $", corta: "Menor a mayor $" },
+  { id: "precio_desc", etiqueta: "Mayor a menor $", corta: "Mayor a menor $" },
+  { id: "prioridad", etiqueta: "Prioridad ★", corta: "Prioridad ★" },
+];
+
+/**
+ * Ordena los deseos del libro sin mutar el arreglo original.
+ * - time = O(n log n), space = O(n) sobre n = items.length.
+ * - Estructura: copia superficial Array + mapa constante PESO_PRIORIDAD O(1).
+ * - Los deseos sin precio ("A elección", price === null) quedan al final al ordenar por precio.
+ */
+function ordenarItems<T extends Item | ItemAjeno>(lista: T[], orden: OrdenLibro): T[] {
+  if (orden === "manual" || lista.length <= 1) return lista;
+  return lista.slice().sort((a, b) => {
+    if (orden === "precio_asc") {
+      if (a.price === null && b.price === null) return a.position - b.position;
+      if (a.price === null) return 1;
+      if (b.price === null) return -1;
+      return a.price - b.price || a.position - b.position;
+    }
+    if (orden === "precio_desc") {
+      if (a.price === null && b.price === null) return a.position - b.position;
+      if (a.price === null) return 1;
+      if (b.price === null) return -1;
+      return b.price - a.price || a.position - b.position;
+    }
+    const pa = a.priority ? (PESO_PRIORIDAD[a.priority] ?? 3) : 3;
+    const pb = b.priority ? (PESO_PRIORIDAD[b.priority] ?? 3) : 3;
+    if (pa !== pb) return pa - pb;
+    const precioA = a.price ?? Number.POSITIVE_INFINITY;
+    const precioB = b.price ?? Number.POSITIVE_INFINITY;
+    if (precioA !== precioB) return precioA - precioB;
+    return a.position - b.position;
+  });
+}
 
 /**
  * Hoja física 3D que gira 180° sobre el lomo central del libro al pasar de página:
@@ -142,11 +186,14 @@ export function LibroAbierto({
   const colorActivo = esMio ? miColor : otroColor;
 
   const [items, setItems] = useState<(Item | ItemAjeno)[]>(itemsIniciales);
+  const [orden, setOrden] = useState<OrdenLibro>("manual");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [direccion, setDireccion] = useState<1 | -1>(1);
   const [giroId, setGiroId] = useState(0);
 
-  const totalPliegos = 1 + items.length + (esMio ? 1 : 0);
+  const itemsOrdenados = useMemo(() => ordenarItems(items, orden), [items, orden]);
+
+  const totalPliegos = 1 + itemsOrdenados.length + (esMio ? 1 : 0);
   const clampPliego = useCallback(
     (n: number) => Math.max(1, Math.min(totalPliegos, Number.isFinite(n) ? Math.trunc(n) : 1)),
     [totalPliegos],
@@ -172,6 +219,19 @@ export function LibroAbierto({
     },
     [clampPliego, libro],
   );
+
+  function cambiarOrden(nuevoOrden: OrdenLibro) {
+    if (nuevoOrden === orden) return;
+    setOrden(nuevoOrden);
+    setEditandoId(null);
+    // Si estamos leyendo la ficha de un deseo, abrimos el primer deseo del nuevo orden con animación de hoja
+    if (pliego >= 2 && !(esMio && pliego === totalPliegos)) {
+      setDireccion(1);
+      setGiroId((g) => g + 1);
+      setPliego(2);
+      window.history.replaceState(null, "", `/?libro=${libro}&pliego=2`);
+    }
+  }
 
   useEffect(() => {
     window.history.replaceState(null, "", `/?libro=${libro}&pliego=${pliego}`);
@@ -289,14 +349,14 @@ export function LibroAbierto({
   const esPortada = pliego === 1;
   const esFormularioNuevo = esMio && pliego === totalPliegos;
   const indiceProducto = pliego - 2;
-  const productoActual = !esPortada && !esFormularioNuevo ? items[indiceProducto] : undefined;
+  const productoActual = !esPortada && !esFormularioNuevo ? itemsOrdenados[indiceProducto] : undefined;
   const numeroPaginaIzq = (pliego - 1) * 2 + 1;
 
   const contadorSuperior = esPortada
-    ? `Portada · ${dosDigitos(items.length)} ${items.length === 1 ? "deseo" : "deseos"}`
+    ? `Portada · ${dosDigitos(itemsOrdenados.length)} ${itemsOrdenados.length === 1 ? "deseo" : "deseos"}`
     : esFormularioNuevo
       ? `Nueva página · Pliego ${dosDigitos(pliego)} / ${dosDigitos(totalPliegos)}`
-      : `Producto ${dosDigitos(indiceProducto + 1)} / ${dosDigitos(items.length)}`;
+      : `Producto ${dosDigitos(indiceProducto + 1)} / ${dosDigitos(itemsOrdenados.length)}`;
 
   return (
     <section
@@ -306,7 +366,7 @@ export function LibroAbierto({
       onTouchEnd={onTouchEnd}
     >
       {/* Barra superior: ← Volver al estante | Contador */}
-      <div className="mb-5 flex items-center justify-between gap-4">
+      <div className="mb-3 flex items-center justify-between gap-4">
         <Link href="/" className="volver inline-flex items-center gap-2.5 py-2 text-[15px] font-semibold">
           <Flecha izquierda />
           <span>Volver al estante</span>
@@ -315,6 +375,38 @@ export function LibroAbierto({
           {contadorSuperior}
         </span>
       </div>
+
+      {/* Barra editorial de ordenamiento por precio / prioridad */}
+      {items.length > 0 && (
+        <div
+          role="group"
+          aria-label="Ordenar el libro"
+          className="mb-5 flex flex-wrap items-center justify-between gap-2.5 rounded-[3px] border border-regla bg-papel/85 px-3.5 py-2"
+        >
+          <span className="rotulo text-[11px] text-tinta-2">Ordenar libro:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {OPCIONES_ORDEN.map((op) => {
+              const activo = orden === op.id;
+              return (
+                <button
+                  key={op.id}
+                  type="button"
+                  aria-pressed={activo}
+                  onClick={() => cambiarOrden(op.id)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                    activo
+                      ? "border-[var(--c-fuerte)] bg-[var(--c-fuerte)] text-papel"
+                      : "border-regla bg-papel text-tinta hover:border-tinta-2 hover:bg-marfil"
+                  }`}
+                >
+                  <span className="hidden sm:inline">{op.etiqueta}</span>
+                  <span className="sm:hidden">{op.corta}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Marco del pliego con botones circulares a izquierda y derecha */}
       <div className="grid grid-cols-1 items-start gap-3.5 md:grid-cols-[48px_minmax(0,1fr)_48px] xl:-mx-[70px] xl:grid-cols-[56px_minmax(0,1fr)_56px]">
@@ -339,7 +431,8 @@ export function LibroAbierto({
             <PliegoPortada
               esMio={esMio}
               duenoNombre={duenoNombre}
-              items={items}
+              items={itemsOrdenados}
+              orden={orden}
               onIrAPliego={irAPliego}
             />
           ) : esFormularioNuevo ? (
@@ -352,7 +445,7 @@ export function LibroAbierto({
             <PliegoFormulario
               inicial={productoActual}
               numeroPaginaIzq={numeroPaginaIzq}
-              etiquetaIzq={`Mi carrito · Editando ${dosDigitos(indiceProducto + 1)} de ${dosDigitos(items.length)}`}
+              etiquetaIzq={`Mi carrito · Editando ${dosDigitos(indiceProducto + 1)} de ${dosDigitos(itemsOrdenados.length)}`}
               onGuardar={(payload) => guardarEdicion(productoActual.id, payload)}
               onCancelar={() => setEditandoId(null)}
             />
@@ -360,13 +453,15 @@ export function LibroAbierto({
             <PliegoProducto
               item={productoActual}
               indice={indiceProducto}
-              total={items.length}
+              total={itemsOrdenados.length}
               esMio={esMio}
               duenoNombre={duenoNombre}
               numeroPaginaIzq={numeroPaginaIzq}
               onEditar={esMio ? () => setEditandoId(productoActual.id) : undefined}
               onEliminar={esMio ? () => eliminarActual(productoActual.id) : undefined}
-              onMover={esMio ? (delta) => moverActual(indiceProducto, delta) : undefined}
+              onMover={
+                esMio && orden === "manual" ? (delta) => moverActual(indiceProducto, delta) : undefined
+              }
               onToggleCompra={!esMio ? (comprado) => cambiarCompra(productoActual.id, comprado) : undefined}
             />
           ) : null}
@@ -404,7 +499,7 @@ export function LibroAbierto({
               ? "Portada e índice"
               : esFormularioNuevo
                 ? "+ Añadir deseo"
-                : `Deseo ${dosDigitos(indiceProducto + 1)} de ${dosDigitos(items.length)}`}
+                : `Deseo ${dosDigitos(indiceProducto + 1)} de ${dosDigitos(itemsOrdenados.length)}`}
           </span>
           <span className="text-[11px] text-tinta-2">
             Desliza o usa las flechas
@@ -434,7 +529,7 @@ export function LibroAbierto({
                 ? "Pliego 1: Portada e índice"
                 : esUltimoAnadir
                   ? `Pliego ${num}: Añadir producto`
-                  : `Pliego ${num}: ${items[num - 2]?.name ?? `Producto ${num - 1}`}`;
+                  : `Pliego ${num}: ${itemsOrdenados[num - 2]?.name ?? `Producto ${num - 1}`}`;
             return (
               <li key={num}>
                 <button

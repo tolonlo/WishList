@@ -4,6 +4,15 @@ import { dosDigitos, formatoPrecio, plural } from "@/lib/format";
 import type { Item, ItemAjeno } from "@/lib/types";
 import { Flecha, Icono } from "../Icono";
 
+export type OrdenLibro = "manual" | "precio_asc" | "precio_desc" | "prioridad";
+
+const SUBTITULO_ORDEN: Record<OrdenLibro, string> = {
+  manual: "Toca cualquier título para abrir directamente su página, o pasa las hojas con las flechas.",
+  precio_asc: "Ordenado de menor a mayor precio · Toca cualquier deseo para abrir su página.",
+  precio_desc: "Ordenado de mayor a menor precio · Toca cualquier deseo para abrir su página.",
+  prioridad: "Ordenado por prioridad (★ primero) · Toca cualquier deseo para abrir su página.",
+};
+
 /**
  * Primer pliego del libro:
  * - Página izquierda: cubierta interior de color plano con título en serif gigante, dueño y conteo.
@@ -13,11 +22,13 @@ export function PliegoPortada({
   esMio,
   duenoNombre,
   items,
+  orden = "manual",
   onIrAPliego,
 }: {
   esMio: boolean;
   duenoNombre: string;
   items: (Item | ItemAjeno)[];
+  orden?: OrdenLibro;
   onIrAPliego: (pliego: number) => void;
 }) {
   const total = items.length;
@@ -98,7 +109,7 @@ export function PliegoPortada({
               Índice de deseos
             </h2>
             <p className="mt-1.5 text-[15px] text-tinta-2">
-              Toca cualquier título para abrir directamente su pliego, o pasa las páginas con las flechas.
+              {SUBTITULO_ORDEN[orden]}
             </p>
 
             <ol className="mt-6 divide-y divide-regla border-y border-regla">
@@ -123,8 +134,10 @@ export function PliegoPortada({
                             Comprado
                           </span>
                         )}
-                        {item.price !== null && (
+                        {item.price !== null ? (
                           <span className="text-tinta-2">{formatoPrecio(item.price)}</span>
+                        ) : (
+                          <span className="font-normal text-tinta-2/75 italic">A elección</span>
                         )}
                       </span>
                     </button>
