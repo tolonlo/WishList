@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nuestra wishlist · Biblioteca de deseos en pareja
 
-## Getting Started
+Aplicación web para que dos personas escriban su lista de deseos y consulten la del otro en silencio, marcando en secreto qué regalos ya compraron. Inspirada en el lenguaje editorial de *Cerebro Helsinki* (estante de carpetas-libro + pliegos a doble página).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Next.js (App Router) + TypeScript**
+- **Tailwind CSS v4 + Framer Motion**
+- **Fuentes**: `Cormorant Garamond` (serif editorial) + `Manrope` (sans geométrica) vía `next/font/google`
+- **Base de datos**: **Neon / Vercel Postgres** (`@neondatabase/serverless`) — con respaldo automático a **PGlite** en `./.pglite` cuando `DATABASE_URL` está vacío en desarrollo local
+- **Imágenes**: **Vercel Blob** (`@vercel/blob`) — con respaldo automático a `./public/uploads` en desarrollo local y compresión/redimensionado previo en el navegador (`<= 1600px` WebP/JPEG)
+- **Autenticación**: 2 usuarios definidos en variables de entorno, cookie `httpOnly` firmada con `jose` (HS256, 30 días), protegida en `src/proxy.ts` y verificada en cada Route Handler
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Variables de entorno (`.env.example`)
 
-## Learn More
+| Variable | Obligatoria en Vercel | Descripción |
+| --- | --- | --- |
+| `USER1_NAME` | Sí | Nombre visible del primer miembro de la pareja (ej. `Tomás`) |
+| `USER1_PASS` | Sí | Contraseña del primer usuario |
+| `USER2_NAME` | Sí | Nombre visible del segundo miembro de la pareja (ej. `Valentina`) |
+| `USER2_PASS` | Sí | Contraseña del segundo usuario |
+| `AUTH_SECRET` | Sí | Secreto de al menos 32 caracteres para firmar el JWT (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`) |
+| `DATABASE_URL` | Sí | Cadena de conexión de Neon / Vercel Postgres |
+| `BLOB_READ_WRITE_TOKEN` | Sí | Token de lectura/escritura de Vercel Blob |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Desarrollo local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Copia las variables de ejemplo:
+   ```bash
+   cp .env.example .env.local
+   ```
+   *(En local no necesitas rellenar `DATABASE_URL` ni `BLOB_READ_WRITE_TOKEN`: la app crea sola una base Postgres embebida en `./.pglite` aplicando `db/migrations/001_init.sql` y guarda imágenes en `./public/uploads`).*
 
-## Deploy on Vercel
+2. Instala dependencias y arranca el servidor:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Abre `http://localhost:3000`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Paso a paso para desplegar en Vercel
+
+1. **Subir el repositorio a GitHub / GitLab / Bitbucket** e importarlo como proyecto nuevo en [vercel.com/new](https://vercel.com/new).
+2. **Crear la base de datos Postgres (Neon)**:
+   - En el panel del proyecto en Vercel ve a **Storage → Create Database → Neon Postgres** (Serverless Postgres).
+   - Al conectarla al proyecto, Vercel inyecta automáticamente `DATABASE_URL`.
+   - Abre la consola SQL de Neon (pestaña **Query** en Vercel Storage o consola de Neon) y pega el contenido completo de [`db/migrations/001_init.sql`](./db/migrations/001_init.sql) para crear las tablas `items`, `item_images` y `purchase_status`.
+3. **Crear el almacenamiento de imágenes (Vercel Blob)**:
+   - En **Storage → Create Database → Blob** crea un store **Public**.
+   - Al conectarlo al proyecto, Vercel añade automáticamente `BLOB_READ_WRITE_TOKEN`.
+4. **Configurar las variables de autenticación**:
+   - En **Settings → Environment Variables** añade:
+     - `USER1_NAME` y `USER1_PASS`
+     - `USER2_NAME` y `USER2_PASS`
+     - `AUTH_SECRET` (mínimo 32 caracteres aleatorios)
+5. **Desplegar**:
+   - Haz clic en **Deploy** (o haz push a `main`).
+
+---
+
+## Garantía de privacidad del estado de compra
+
+- El estado (`pendiente` / `comprado`) vive en una tabla independiente `purchase_status (item_id, buyer, status)`.
+- Las consultas del dueño (`listarMios` en `src/lib/items.ts`) **jamás hacen `JOIN` ni leen `purchase_status`**: ni el HTML ni las respuestas de `/api/items?libro=mio` incluyen ese campo.
+- El endpoint `PUT /api/purchases/[itemId]` exige en SQL que `items.owner = otro` (no permite marcar items propios) y guarda siempre `buyer = sesion.yo`.

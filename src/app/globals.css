@@ -1,26 +1,306 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Dirección visual: biblioteca editorial cálida (tokens tomados de la referencia) ── */
+@theme {
+  --color-marfil: #f3efe7;
+  --color-papel: #faf8f4;
+  --color-tinta: #25332b;
+  --color-tinta-2: #4f5c53;
+  --color-regla: #d8d2c5;
+  --color-placa: #e6e2d9;
+
+  --color-salvia: #d6dba5;
+  --color-salvia-fuerte: #5e6a2a;
+  --color-terracota: #d5a891;
+  --color-terracota-claro: #ecd9cf;
+  --color-terracota-fuerte: #9c5236;
+  --color-lavanda: #c0bed6;
+  --color-lavanda-fuerte: #58538a;
+  --color-mostaza: #e3c76f;
+  --color-mostaza-fuerte: #81630c;
+  --color-verde: #587161;
+  --color-verde-fuerte: #3f5c48;
+
+  /* Colores principales de la pareja: naranja mandarina cálido y morado orquídea vivo */
+  --color-naranja: #ee8a52;
+  --color-naranja-claro: #f6a779;
+  --color-naranja-fuerte: #b34412;
+  --color-morado: #b495ea;
+  --color-morado-claro: #cbb3f4;
+  --color-morado-fuerte: #583298;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-manrope), "Manrope", system-ui, sans-serif;
+
+  --ease-salida: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Color de cada volumen: --c (fondo), --c-claro (tapa/cinta), --c-fuerte (acento), --c-texto */
+[data-color="naranja"] {
+  --c: var(--color-naranja);
+  --c-claro: var(--color-naranja-claro);
+  --c-fuerte: var(--color-naranja-fuerte);
+  --c-texto: var(--color-tinta);
 }
+[data-color="morado"] {
+  --c: var(--color-morado);
+  --c-claro: var(--color-morado-claro);
+  --c-fuerte: var(--color-morado-fuerte);
+  --c-texto: var(--color-tinta);
+}
+[data-color="salvia"] { --c: var(--color-salvia); --c-fuerte: var(--color-salvia-fuerte); --c-texto: var(--color-tinta); }
+[data-color="lavanda"] { --c: var(--color-lavanda); --c-fuerte: var(--color-lavanda-fuerte); --c-texto: var(--color-tinta); }
+[data-color="terracota"] { --c: var(--color-terracota); --c-fuerte: var(--color-terracota-fuerte); --c-texto: var(--color-tinta); }
+[data-color="mostaza"] { --c: var(--color-mostaza); --c-fuerte: var(--color-mostaza-fuerte); --c-texto: var(--color-tinta); }
+[data-color="verde"] { --c: var(--color-verde); --c-fuerte: var(--color-verde-fuerte); --c-texto: #f6f3ec; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color: var(--color-tinta);
+    background: var(--color-marfil);
+    font: 400 16px/1.55 var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    scrollbar-color: var(--color-regla) transparent;
+    -webkit-tap-highlight-color: transparent;
   }
+  body { min-width: 320px; background: var(--color-marfil); }
+  ::selection { background: var(--c, var(--color-salvia)); color: var(--color-tinta); }
+  :focus-visible { outline: 2px solid var(--color-tinta); outline-offset: 3px; border-radius: 2px; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Etiqueta pequeña en mayúsculas */
+  .rotulo { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Caja de regalo editorial en el estante (bordes en el tono oscuro del propio color, nunca negro) */
+  .regalo {
+    color: var(--c-texto);
+    transition: transform 0.5s var(--ease-salida), filter 0.5s var(--ease-salida),
+      opacity 0.5s var(--ease-salida);
+  }
+  .regalo-tapa {
+    background: var(--c-claro, color-mix(in srgb, var(--c) 80%, white));
+    border: 1.5px solid color-mix(in srgb, var(--c-fuerte) 55%, transparent);
+    box-shadow: inset 12px 0 rgb(255 255 255 / 0.18), 0 8px 14px -10px color-mix(in srgb, var(--c-fuerte) 55%, transparent);
+    transform-origin: left bottom;
+    transition: transform 0.55s var(--ease-salida), box-shadow 0.55s var(--ease-salida);
+  }
+  .regalo-lazo {
+    color: var(--c-fuerte);
+    transform-origin: center bottom;
+    transition: transform 0.55s var(--ease-salida);
+  }
+  .lazo-ala-izq,
+  .lazo-ala-der,
+  .lazo-cola-izq,
+  .lazo-cola-der,
+  .lazo-nudo {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 0.55s var(--ease-salida), opacity 0.45s var(--ease-salida);
+  }
+  .regalo-cuerpo {
+    background: var(--c);
+    border-inline: 1.5px solid color-mix(in srgb, var(--c-fuerte) 50%, transparent);
+    box-shadow: inset 14px 0 rgb(255 255 255 / 0.14), 0 22px 30px -24px #25332b8c;
+    transition: box-shadow 0.55s var(--ease-salida), filter 0.55s var(--ease-salida);
+  }
+  .regalo-cinta {
+    background: color-mix(in srgb, var(--c-claro, var(--c)) 62%, var(--color-papel));
+    border-color: color-mix(in srgb, var(--c-fuerte) 40%, transparent);
+    transition: transform 0.55s var(--ease-salida), opacity 0.45s var(--ease-salida);
+  }
+  .regalo-tarjeta {
+    background: var(--color-papel);
+    border: 1px solid color-mix(in srgb, var(--c-fuerte) 42%, transparent);
+    box-shadow: 0 12px 24px -18px #25332b70;
+    transition: transform 0.5s var(--ease-salida), box-shadow 0.5s var(--ease-salida);
+  }
+
+  /* Resplandor cálido que sale del interior de la caja al entreabrirse */
+  .regalo-resplandor {
+    opacity: 0;
+    transform: scaleY(0.3) translateY(10px);
+    transform-origin: center bottom;
+    background: radial-gradient(
+      ellipse 75% 90% at 50% 85%,
+      #fffbeb 0%,
+      #fde68a 38%,
+      color-mix(in srgb, var(--c-claro, var(--c)) 70%, transparent) 72%,
+      transparent 100%
+    );
+    filter: blur(6px);
+    transition: opacity 0.5s var(--ease-salida), transform 0.65s var(--ease-salida);
+  }
+  .regalo-haz {
+    opacity: 0;
+    transform: translateY(14px) scale(0.75);
+    transition: opacity 0.55s var(--ease-salida), transform 0.7s var(--ease-salida);
+  }
+
+  /* Hover: el moño se afloja un poco, la tapa se entreabre y asoma un destello cálido */
+  .regalo:hover, .regalo:focus-visible {
+    transform: translateY(-8px);
+  }
+  .regalo:hover .regalo-tapa, .regalo:focus-visible .regalo-tapa {
+    transform: translateY(-11px) rotate(-2.5deg);
+    box-shadow: inset 12px 0 rgb(255 255 255 / 0.25), 0 18px 26px -12px rgb(251 191 36 / 0.45);
+  }
+  .regalo:hover .lazo-ala-izq, .regalo:focus-visible .lazo-ala-izq {
+    transform: rotate(-10deg) scaleX(0.9);
+  }
+  .regalo:hover .lazo-ala-der, .regalo:focus-visible .lazo-ala-der {
+    transform: rotate(10deg) scaleX(0.9);
+  }
+  .regalo:hover .lazo-cola-izq, .regalo:focus-visible .lazo-cola-izq {
+    transform: translate(-3px, 2px) rotate(-8deg);
+  }
+  .regalo:hover .lazo-cola-der, .regalo:focus-visible .lazo-cola-der {
+    transform: translate(3px, 2px) rotate(8deg);
+  }
+  .regalo:hover .regalo-resplandor, .regalo:focus-visible .regalo-resplandor {
+    opacity: 0.75;
+    transform: scaleY(0.85) translateY(0);
+  }
+  .regalo:hover .regalo-cuerpo, .regalo:focus-visible .regalo-cuerpo {
+    box-shadow: inset 0 22px 28px -14px rgb(254 243 199 / 0.55), inset 14px 0 rgb(255 255 255 / 0.14), 0 34px 38px -24px #25332b99;
+  }
+  .regalo:hover .regalo-tarjeta, .regalo:focus-visible .regalo-tarjeta {
+    transform: translateY(-3px);
+  }
+
+  /* Al hacer clic (sacando): el moño se desata a medias, las cintas se sueltan, la tapa se abre y brilla por dentro */
+  .estante.sacando .apagado .regalo {
+    filter: grayscale(0.85);
+    opacity: 0.3;
+    transform: scale(0.98);
+  }
+  .estante.sacando .sacado .regalo {
+    transform: translateY(-14px) scale(1.02);
+  }
+  .estante.sacando .sacado .lazo-ala-izq {
+    transform: translate(6px, 7px) rotate(-26deg) scale(0.62, 0.48);
+  }
+  .estante.sacando .sacado .lazo-ala-der {
+    transform: translate(-6px, 7px) rotate(26deg) scale(0.62, 0.48);
+  }
+  .estante.sacando .sacado .lazo-cola-izq {
+    transform: translate(-10px, 7px) rotate(-26deg) scaleX(1.4);
+  }
+  .estante.sacando .sacado .lazo-cola-der {
+    transform: translate(10px, 7px) rotate(26deg) scaleX(1.4);
+  }
+  .estante.sacando .sacado .lazo-nudo {
+    transform: scale(0.82) translateY(3px);
+  }
+  .estante.sacando .sacado .regalo-tapa {
+    transform: translate(-4px, -38px) rotate(-10deg);
+    box-shadow: 0 24px 36px -8px rgb(251 191 36 / 0.65);
+  }
+  .estante.sacando .sacado .cinta-tapa {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+  .estante.sacando .sacado .cinta-v {
+    transform: translate(-50%, 28px) scaleX(0.65);
+    opacity: 0;
+  }
+  .estante.sacando .sacado .cinta-h {
+    transform: translateY(-50%) scaleX(1.08);
+    opacity: 0;
+  }
+  .estante.sacando .sacado .regalo-resplandor {
+    opacity: 1;
+    transform: scaleY(1.45) scaleX(1.08) translateY(-10px);
+  }
+  .estante.sacando .sacado .regalo-haz {
+    opacity: 1;
+    transform: translateY(-22px) scale(1.08);
+  }
+  .estante.sacando .sacado .regalo-cuerpo {
+    box-shadow:
+      inset 0 48px 46px -18px #fef08a,
+      0 -18px 44px -8px rgb(251 191 36 / 0.6),
+      0 38px 44px -24px #25332ba6;
+  }
+  .estante.sacando .sacado .regalo-tarjeta {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 0 32px 2px rgb(254 240 138 / 0.75), 0 16px 28px -18px #25332b80;
+  }
+
+  /* Pliego (libro abierto) */
+  .pliego-sombra { box-shadow: 0 30px 60px -38px #25332b80, 0 2px 0 var(--color-regla); }
+  .pagina-izq { box-shadow: inset -18px 0 22px -20px #25332b38; }
+  .pagina-der { box-shadow: inset 18px 0 22px -20px #25332b1f; }
+
+  .placa-trama { background-image: repeating-linear-gradient(135deg, rgb(37 51 43 / 0.1) 0 1px, transparent 1px 10px); }
+
+  .enlace {
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--c-fuerte, var(--color-tinta));
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+  }
+  .enlace:hover { text-decoration-thickness: 2.5px; }
+
+  .flecha { transition: transform 0.3s var(--ease-salida); }
+  .volver:hover .flecha { transform: translateX(-4px); }
+  .avanzar:hover .flecha { transform: translateX(5px); }
+
+  /* Botón circular de hoja */
+  .hoja {
+    display: grid; place-items: center;
+    width: 56px; height: 56px;
+    border: 1.5px solid var(--color-tinta); border-radius: 50%;
+    background: var(--color-papel);
+    box-shadow: 0 10px 22px -14px #25332b8c;
+    transition: background 0.22s, color 0.22s, transform 0.3s var(--ease-salida), opacity 0.2s;
+  }
+  .hoja:hover:not(:disabled) { background: var(--color-tinta); color: var(--color-papel); }
+  .hoja:disabled { opacity: 0.25; box-shadow: none; }
+
+  /* Sello de biblioteca */
+  .sello {
+    border: 3px double currentColor;
+    color: var(--color-terracota-fuerte);
+    mix-blend-mode: multiply;
+    background-image: radial-gradient(circle at 30% 40%, transparent 0 60%, rgb(250 248 244 / 0.35) 61%);
+  }
+
+  /* Campos de formulario */
+  .campo {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--color-regla);
+    border-radius: 3px;
+    background: var(--color-papel);
+    font-size: 16px; /* evita zoom en iOS */
+    color: var(--color-tinta);
+    transition: border-color 0.2s;
+  }
+  .campo:hover { border-color: #b9b2a3; }
+  .campo:focus-visible { outline: 2px solid var(--color-tinta); outline-offset: 1px; border-color: var(--color-tinta); }
+}
+
+@keyframes levantar {
+  from { transform: translateY(-34px) rotate(-2.5deg); }
+  to { transform: none; }
+}
+
+@media (max-width: 767px) {
+  .regalo:hover, .regalo:focus-visible { transform: translateY(-6px); }
+  .estante.sacando .sacado .regalo { transform: translateY(-18px) rotate(-1deg); }
+  .hoja { width: 44px; height: 44px; box-shadow: 0 8px 18px -10px #25332b80; }
+  .hoja:disabled { opacity: 0.25; pointer-events: none; }
+  .pagina-izq { box-shadow: none; }
+  .pagina-der { box-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
